@@ -30,6 +30,8 @@ class Orchestrator {
       this.deviceManager,
       this.logger
     );
+
+    this.activeRequests = new Map(); // reqId -> { status: 'running'|'paused'|'stopped', resolvePause: Function }
   }
 
   /**
@@ -39,13 +41,54 @@ class Orchestrator {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  stopRequest(reqId) {
+    if (this.activeRequests.has(reqId)) {
+      const req = this.activeRequests.get(reqId);
+      req.status = 'stopped';
+      if (req.resolvePause) req.resolvePause(); // 如果在暂停中，立即唤醒并停止
+      this.logger.info(`收到停止请求指令`, { reqId });
+      return true;
+    }
+    return false;
+  }
+
+  pauseRequest(reqId) {
+    if (this.activeRequests.has(reqId)) {
+      const req = this.activeRequests.get(reqId);
+      if (req.status === 'running') {
+        req.status = 'paused';
+        this.logger.info(`收到暂停请求指令`, { reqId });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  resumeRequest(reqId) {
+    if (this.activeRequests.has(reqId)) {
+      const req = this.activeRequests.get(reqId);
+      if (req.status === 'paused') {
+        req.status = 'running';
+        if (req.resolvePause) {
+          req.resolvePause();
+          req.resolvePause = null;
+        }
+        this.logger.info(`收到恢复请求指令`, { reqId });
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * 执行用户请求（观察-行动循环模式）
    */
-  async executeRequest(userQuery, deviceSerial = null) {
-    const reqId = this.generateRequestId();
+  async executeRequest(userQuery, deviceSerial = null, passedReqId = null) {
+    const reqId = passedReqId || this.generateRequestId();
     this.logger.info(`开始处理请求: ${userQuery}`, { reqId });
     this.originalQuery = userQuery; // 保存原始查询
+    
+    this.activeRequests.set(reqId, { status: 'running', resolvePause: null });
 
     try {
       // 1. 选择设备
@@ -83,6 +126,8 @@ class Orchestrator {
     } catch (error) {
       this.logger.error('请求处理失败', error, { reqId });
       throw error;
+    } finally {
+      this.activeRequests.delete(reqId);
     }
   }
 
@@ -98,6 +143,26 @@ class Orchestrator {
     let completed = false;
 
     while (iteration < maxIterations && !completed) {
+      // 检查任务状态
+      const reqState = this.activeRequests.get(reqId);
+      if (reqState) {
+        if (reqState.status === 'stopped') {
+          this.logger.warn('任务已被用户终止', { reqId });
+          break;
+        }
+        if (reqState.status === 'paused') {
+          this.logger.info('任务已暂停，等待恢复...', { reqId });
+          await new Promise(resolve => {
+            reqState.resolvePause = resolve;
+          });
+          // 恢复后再次检查是否停止
+          if (this.activeRequests.get(reqId)?.status === 'stopped') {
+             this.logger.warn('任务在暂停期间被用户终止', { reqId });
+             break;
+          }
+        }
+      }
+
       iteration++;
       this.logger.info(`观察-行动循环 第 ${iteration} 轮`, { reqId });
 

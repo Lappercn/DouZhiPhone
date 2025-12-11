@@ -77,9 +77,11 @@ app.post('/api/task', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Query is required' });
   }
 
+  // 生成 reqId 并立即返回，以便前端控制
+  const reqId = orchestrator.generateRequestId();
+
   // 异步执行任务，不阻塞响应
-  // 注意：Orchestrator 目前设计可能不支持并发，这里简单处理
-  orchestrator.executeRequest(query, deviceSerial)
+  orchestrator.executeRequest(query, deviceSerial, reqId)
     .then(result => {
       io.emit('task_completed', result);
     })
@@ -87,7 +89,40 @@ app.post('/api/task', async (req, res) => {
       io.emit('task_error', { message: error.message });
     });
 
-  res.json({ success: true, message: 'Task started' });
+  res.json({ success: true, message: 'Task started', reqId });
+});
+
+// API: 停止任务
+app.post('/api/task/:reqId/stop', (req, res) => {
+  const { reqId } = req.params;
+  const success = orchestrator.stopRequest(reqId);
+  if (success) {
+    res.json({ success: true, message: 'Task stop signal sent' });
+  } else {
+    res.status(404).json({ success: false, message: 'Task not found or already stopped' });
+  }
+});
+
+// API: 暂停任务
+app.post('/api/task/:reqId/pause', (req, res) => {
+  const { reqId } = req.params;
+  const success = orchestrator.pauseRequest(reqId);
+  if (success) {
+    res.json({ success: true, message: 'Task paused' });
+  } else {
+    res.status(404).json({ success: false, message: 'Task not found or not running' });
+  }
+});
+
+// API: 恢复任务
+app.post('/api/task/:reqId/resume', (req, res) => {
+  const { reqId } = req.params;
+  const success = orchestrator.resumeRequest(reqId);
+  if (success) {
+    res.json({ success: true, message: 'Task resumed' });
+  } else {
+    res.status(404).json({ success: false, message: 'Task not found or not paused' });
+  }
 });
 
 // API: 获取屏幕截图

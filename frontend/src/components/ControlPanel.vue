@@ -37,25 +37,70 @@
               class="custom-textarea"
               resize="none"
             />
-            <el-button 
-              type="primary" 
-              class="send-btn" 
-              :loading="loading"
-              @click="startTask"
-            >
-              <el-icon><Position /></el-icon>
-            </el-button>
+            <div class="action-buttons">
+              <el-button 
+                v-if="!loading"
+                type="primary" 
+                class="send-btn" 
+                @click="startTask"
+              >
+                <el-icon><Position /></el-icon> 执行
+              </el-button>
+              
+              <template v-else>
+                <el-button 
+                  v-if="taskStatus === 'running'"
+                  type="warning" 
+                  class="control-btn" 
+                  @click="pauseTask"
+                >
+                  <el-icon><VideoPause /></el-icon> 暂停
+                </el-button>
+                
+                <el-button 
+                  v-if="taskStatus === 'paused'"
+                  type="success" 
+                  class="control-btn" 
+                  @click="resumeTask"
+                >
+                  <el-icon><VideoPlay /></el-icon> 恢复
+                </el-button>
+
+                <el-button 
+                  type="danger" 
+                  class="control-btn" 
+                  @click="stopTask"
+                >
+                  <el-icon><SwitchButton /></el-icon> 终止
+                </el-button>
+              </template>
+            </div>
           </div>
         </div>
 
-        <div class="glass-card log-area">
-          <div class="panel-header compact">
-            <span><el-icon><tickets /></el-icon> 实时日志</span>
-            <el-button link type="danger" size="small" @click="clearLogs">清空</el-button>
+        <div class="glass-card agent-area">
+          <div class="agent-header">
+            <span><el-icon><Cpu /></el-icon> AI 智能体状态</span>
+            <el-button link type="danger" size="small" @click="clearLogs">清空日志</el-button>
           </div>
+          
+          <div class="agent-visualizer">
+            <div class="agent-core" :class="{ 'active': loading, 'paused': taskStatus === 'paused' }">
+              <div class="core-inner"></div>
+              <div class="core-outer"></div>
+              <div class="core-ring"></div>
+              <div class="particles">
+                <span v-for="n in 8" :key="n" :style="{ '--i': n }"></span>
+              </div>
+            </div>
+            <div class="agent-status-text">
+              {{ getStatusText() }}
+            </div>
+          </div>
+
           <div class="terminal-view" ref="logWindow">
             <div v-if="logs.length === 0" class="terminal-empty">
-              > Ready to execute commands...
+              > 等待指令...
             </div>
             <div v-else class="log-stream">
               <div v-for="(log, index) in logs" :key="index" class="log-row" :class="log.level">
@@ -113,7 +158,7 @@ import { ref, onMounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 import { ElMessage } from 'element-plus'
-import { Operation, Position, Tickets, Iphone } from '@element-plus/icons-vue'
+import { Operation, Position, Tickets, Iphone, VideoPause, VideoPlay, SwitchButton, Cpu } from '@element-plus/icons-vue'
 
 const API_BASE = 'http://localhost:3000'
 const socket = io(API_BASE)
@@ -121,6 +166,8 @@ const socket = io(API_BASE)
 const devices = ref([])
 const logs = ref([])
 const loading = ref(false)
+const taskStatus = ref('idle') // idle, running, paused
+const currentReqId = ref(null)
 const screenshotUrl = ref('')
 const logWindow = ref(null)
 
@@ -128,6 +175,12 @@ const form = ref({
   deviceSerial: '',
   query: ''
 })
+
+const getStatusText = () => {
+  if (taskStatus.value === 'paused') return '已暂停 - 等待人工干预'
+  if (loading.value) return 'AI 正在思考与执行...'
+  return 'AI 智能体就绪'
+}
 
 const formatTime = (isoString) => {
   return new Date(isoString).toLocaleTimeString('en-GB', { hour12: false })
@@ -161,16 +214,55 @@ const startTask = async () => {
   if (!form.value.query) return ElMessage.warning('指令不能为空')
 
   loading.value = true
+  taskStatus.value = 'running'
   logs.value = []
   
   try {
-    await axios.post(`${API_BASE}/api/task`, {
+    const res = await axios.post(`${API_BASE}/api/task`, {
       query: form.value.query,
       deviceSerial: form.value.deviceSerial
     })
+    if (res.data.success) {
+      currentReqId.value = res.data.reqId
+    }
   } catch (err) {
     ElMessage.error('任务启动失败')
     loading.value = false
+    taskStatus.value = 'idle'
+  }
+}
+
+const pauseTask = async () => {
+  if (!currentReqId.value) return
+  try {
+    await axios.post(`${API_BASE}/api/task/${currentReqId.value}/pause`)
+    taskStatus.value = 'paused'
+    ElMessage.info('任务已暂停，您可以进行人工干预')
+  } catch (err) {
+    ElMessage.error('暂停失败')
+  }
+}
+
+const resumeTask = async () => {
+  if (!currentReqId.value) return
+  try {
+    await axios.post(`${API_BASE}/api/task/${currentReqId.value}/resume`)
+    taskStatus.value = 'running'
+    ElMessage.success('任务继续执行')
+  } catch (err) {
+    ElMessage.error('恢复失败')
+  }
+}
+
+const stopTask = async () => {
+  if (!currentReqId.value) return
+  try {
+    await axios.post(`${API_BASE}/api/task/${currentReqId.value}/stop`)
+    loading.value = false
+    taskStatus.value = 'idle'
+    ElMessage.warning('任务已终止')
+  } catch (err) {
+    ElMessage.error('终止失败')
   }
 }
 
@@ -193,11 +285,13 @@ onMounted(() => {
 
   socket.on('task_completed', () => {
     loading.value = false
+    taskStatus.value = 'idle'
     ElMessage.success('执行完成')
   })
 
   socket.on('task_error', (data) => {
     loading.value = false
+    taskStatus.value = 'idle'
     ElMessage.error(data.message)
   })
 })
@@ -271,13 +365,17 @@ onMounted(() => {
 }
 
 .input-area {
-  position: relative;
+  display: flex;
+  gap: 12px;
+}
+
+.custom-textarea {
+  flex: 1;
 }
 
 .custom-textarea :deep(.el-textarea__inner) {
   border-radius: 16px;
   padding: 16px;
-  padding-right: 60px;
   background: rgba(245, 247, 250, 0.8);
   border: none;
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
@@ -290,15 +388,25 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
 }
 
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-left: 10px;
+}
+
 .send-btn {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  border-radius: 12px !important;
-  width: 40px;
-  height: 40px;
-  padding: 0 !important;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+  height: auto !important;
+  padding: 0 20px !important;
+}
+
+.control-btn {
+  height: auto !important;
+  padding: 0 15px !important;
+}
+
+/* 按钮图标间距 */
+.el-button .el-icon {
+  margin-right: 4px;
 }
 
 /* Log Area */
@@ -315,54 +423,288 @@ onMounted(() => {
   background: rgba(255,255,255,0.5);
 }
 
+/* AI Agent Visualizer Styles */
+.agent-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.agent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.agent-visualizer {
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(to bottom, #f8fafd, #ffffff);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  position: relative;
+}
+
+.agent-status-text {
+  margin-top: 15px;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.agent-core {
+  position: relative;
+  width: 60px;
+  height: 60px;
+}
+
+.core-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #409EFF, #36D1DC);
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(64, 158, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.core-outer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid rgba(64, 158, 255, 0.2);
+  border-radius: 50%;
+  animation: pulse 3s infinite ease-in-out;
+}
+
+.core-ring {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: calc(100% + 10px);
+  height: calc(100% + 10px);
+  border: 1px solid transparent;
+  border-top-color: #409EFF;
+  border-right-color: #409EFF;
+  border-radius: 50%;
+  animation: spin 4s linear infinite;
+  opacity: 0.5;
+}
+
+.particles span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  background: #409EFF;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+
+/* Active State Animations */
+.agent-core.active .core-inner {
+  background: linear-gradient(135deg, #FF4081, #FF80AB); /* Pink/Red for active */
+  box-shadow: 0 0 30px rgba(255, 64, 129, 0.6);
+  animation: heartbeat 1s infinite ease-in-out;
+}
+
+.agent-core.active .core-outer {
+  border-color: rgba(255, 64, 129, 0.3);
+  animation: pulse-fast 1s infinite ease-in-out;
+}
+
+.agent-core.active .core-ring {
+  border-top-color: #FF4081;
+  border-right-color: #FF4081;
+  animation: spin 1s linear infinite;
+}
+
+.agent-core.active .particles span {
+  animation: particle-orbit 2s infinite linear;
+  animation-delay: calc(var(--i) * 0.25s);
+}
+
+/* Paused State */
+.agent-core.paused .core-inner {
+  background: linear-gradient(135deg, #FFC107, #FFD54F); /* Yellow for paused */
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);
+  animation: none;
+}
+
+.agent-core.paused .core-ring {
+  border-top-color: #FFC107;
+  border-right-color: #FFC107;
+  animation-play-state: paused;
+}
+
+/* Animations */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.5; }
+}
+
+@keyframes pulse-fast {
+  0% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.6; }
+}
+
+@keyframes heartbeat {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  15% { transform: translate(-50%, -50%) scale(1.2); }
+  30% { transform: translate(-50%, -50%) scale(1); }
+  45% { transform: translate(-50%, -50%) scale(1.1); }
+  60% { transform: translate(-50%, -50%) scale(1); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes particle-orbit {
+  0% { transform: rotate(0deg) translateX(40px) rotate(0deg); opacity: 1; }
+  100% { transform: rotate(360deg) translateX(40px) rotate(-360deg); opacity: 0; }
+}
+
 .terminal-view {
   flex: 1;
-  background: #1e1e1e;
+  background: #ffffff;
   padding: 16px;
   overflow-y: auto;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px;
+  line-height: 1.6;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .terminal-empty {
-  color: #5c6370;
+  color: #909399;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-style: italic;
+}
+
+/* 粒子日志样式 - 现代科技白底风格 */
+.log-stream {
+  position: relative;
+  padding-left: 15px;
+}
+
+.log-stream::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 6px;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, #e0e6ed, transparent);
 }
 
 .log-row {
-  margin-bottom: 6px;
+  position: relative;
+  margin-bottom: 12px;
   display: flex;
   gap: 12px;
   line-height: 1.5;
+  opacity: 0;
+  animation: slideInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.5);
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.log-row:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  border-color: #f0f2f5;
+  transform: translateX(4px);
+}
+
+.log-row::before {
+  content: '';
+  position: absolute;
+  left: -13px;
+  top: 16px;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border: 2px solid #409EFF;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+  z-index: 1;
+  transition: all 0.3s;
+}
+
+.log-row:hover::before {
+  background: #409EFF;
+  transform: scale(1.2);
 }
 
 .log-row .time {
-  color: #5c6370;
+  color: #909399;
   font-size: 12px;
-  min-width: 60px;
+  min-width: 55px;
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .log-row .content {
-  color: #abb2bf;
+  color: #606266;
   word-break: break-all;
+  font-weight: 500;
 }
+
+.log-row.info .content { color: #303133; }
+.log-row.warn .content { color: #e6a23c; }
+.log-row.error .content { color: #f56c6c; }
+
+.log-row.warn { background: rgba(253, 246, 236, 0.5); border-left: 3px solid #e6a23c; }
+.log-row.error { background: rgba(254, 240, 240, 0.5); border-left: 3px solid #f56c6c; }
+
+.log-row.warn::before { border-color: #e6a23c; box-shadow: 0 0 0 2px rgba(230, 162, 60, 0.2); }
+.log-row.error::before { border-color: #f56c6c; box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2); }
 
 .step-tag {
-  background: #98c379;
-  color: #1e1e1e;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: bold;
+  background: linear-gradient(135deg, #409EFF, #36D1DC);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
   font-size: 11px;
-  margin-right: 6px;
+  margin-right: 8px;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.3);
+  letter-spacing: 0.5px;
+  border: none;
 }
 
-.log-row.info .content { color: #61afef; }
-.log-row.warn .content { color: #e5c07b; }
-.log-row.error .content { color: #e06c75; }
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* Phone Mockup */
 .phone-mockup {

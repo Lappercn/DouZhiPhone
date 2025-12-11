@@ -310,8 +310,10 @@ class DeviceManager {
         ] = match;
 
         // 过滤掉不可见或无效的元素
-        // 1. 必须有文本或描述或ID（否则没有任何语义信息）
-        const hasInfo = text || contentDesc || resourceId;
+        // 1. 必须有文本或描述或ID，或者它是可点击的且有明确边界
+        // 修改：即使没有 text/desc/id，只要 clickable=true 且有边界，也保留，方便模型根据位置推断
+        const isClickable = clickable === 'true';
+        const hasInfo = text || contentDesc || resourceId || isClickable;
         if (!hasInfo) continue;
 
         // 2. 计算中心点坐标
@@ -326,6 +328,9 @@ class DeviceManager {
         const centerX = Math.floor((left + right) / 2);
         const centerY = Math.floor((top + bottom) / 2);
 
+        // 如果没有 text/desc/id，添加一个类型标记
+        const typeInfo = isClickable ? 'type="clickable_area"' : '';
+
         elements.push({
           text: text || '',
           desc: contentDesc || '',
@@ -333,8 +338,9 @@ class DeviceManager {
           class: className || '',
           bounds: `[${left},${top}][${right},${bottom}]`,
           center: { x: centerX, y: centerY },
-          clickable: clickable === 'true',
-          raw: `<${className.split('.').pop()} text="${text}" desc="${contentDesc}" id="${resourceId}"/>`
+          clickable: isClickable,
+          // 简化 raw 字段，只保留最关键信息，方便模型理解
+          raw: `<element ${typeInfo} class="${className.split('.').pop()}" text="${text}" desc="${contentDesc}" id="${resourceId}" clickable="${clickable}" center="${centerX},${centerY}" bounds="[${left},${top}][${right},${bottom}]" />`
         });
       }
       

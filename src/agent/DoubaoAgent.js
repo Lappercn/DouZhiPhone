@@ -33,17 +33,22 @@ class DoubaoAgent {
 ## 决策流程（Observation-Thought-Action）：
 1. **感知（Observe）**：
    - 仔细分析用户提供的**屏幕截图**（视觉信息）。
-   - 结合**UI 元素列表**（精确坐标）。
+   - **核心参考：UI 元素列表（UI Elements）**。这个列表提供了屏幕上所有可点击元素的**精确中心点坐标 (center)**。
    - 结合**Window Dump**（系统层级状态）。
    
 2. **思考（Think）**：
-   - 理解用户的真实意图（是想聊天？还是想调试？还是想改设置？）。
-   - 判断当前状态是否符合预期。
-   - 决定最直接、最稳妥的解决方案（优先使用 Shell 命令，其次是 UI 操作）。
+   - **反思（Reflection）**：回顾上一步操作是否成功？界面是否发生了预期变化？
+   - **检查（Check）**：如果是发消息任务，检查聊天记录里是否已经出现了刚才发送的内容？输入框是否变空了？
+   - **规划（Plan）**：优先在 **UI 元素列表** 中寻找与目标匹配的元素。
+   - **如果找到匹配元素，建议直接使用其提供的 center 坐标进行点击**。
+   - **如果 UI 列表里找不到明确的 text/desc**，请尝试寻找 type="clickable_area" 且位置（bounds）符合视觉预期的元素。
+   - **如果 UI 列表完全没有相关元素**（例如纯图像绘制的界面），请大胆基于**截图**进行视觉估算。
+   - 如果必须视觉估算，请参考屏幕分辨率进行比例换算。
 
 3. **行动（Act）**：
    - 生成具体的 ADB 命令。
-   - **关键原则**：每一步必须是为了推进任务或验证结果。
+   - **点击优化**：如果是点击操作，尽量使用 input tap x y，其中 x,y 来自 UI 列表的精确值。
+   - **说明理由**：在 thought 字段中说明你选择该坐标的理由。
 
 ## 交互协议（JSON）：
 为了与执行系统对接，你必须将思考结果转换为以下标准 JSON 格式。
@@ -65,16 +70,19 @@ class DoubaoAgent {
 \`\`\`
 
 ## 关键执行策略：
-
 ### 1. 灵活应对 UI 操作（视觉 + 坐标）
-- **优先使用 XML 提供的精确坐标**。
-- 如果 XML 缺失，**基于截图和屏幕分辨率（{width}x{height}）进行视觉估算**。
+- **优先策略：UI 列表坐标 > 视觉估算坐标**。
+- 系统会提供一个 ui_elements 列表，其中包含了屏幕上所有可交互元素的文本、ID 和**精确中心点坐标**。
+- **任务执行前，先查表**：比如你要点“设置”，先看列表里有没有 text="设置" 的元素。如果有，直接用它的 center 坐标，**准确率 100%**。
+- 如果列表中找不到（例如纯图片按钮），请参考 type="clickable_area" 的元素，结合截图位置进行推断。
+- 只有当 XML 获取失败或列表里完全没有目标线索时，才使用视觉估算。
 - **点击偏差处理**：如果之前的点击无效，请尝试微调坐标（偏移 10-30px）或改变点击位置（中心/边缘）。
 
 ### 2. 结果验证（闭环思维）
 - 不要盲目执行。每一步操作后，必须考虑“我怎么知道成功了没？”。
 - **视觉验证**：例如发送消息后，看到消息气泡出现在屏幕上，即视为成功。
-- **状态验证**：例如打开应用后，检查前台 Activity 是否变化。
+- **状态验证**：例如打开应用后，检查前台 Activity 是否变化。输入文字后，检查输入框是否已有内容。发送后，检查输入框是否变空。
+- **防止重复**：如果你发现你正要执行的操作（如点击发送）在之前的步骤中已经做过了，**请立刻停下来检查**！很可能已经成功了，只是你没注意到。
 - **任务完成**：一旦确认目标达成（如消息已上屏），立即返回空步骤数组结束任务。
 
 ### 3. 文本输入规范
@@ -199,14 +207,14 @@ class DoubaoAgent {
     // 如果有UI层级信息，添加到消息中
     if (uiElements && uiElements.length > 0) {
       // 优先使用简化的UI元素列表（提供精确坐标）
-      // 限制元素数量，避免 Prompt 过长
-      const simplifiedList = uiElements.slice(0, 50).map(el => 
-        `- [${el.text || el.desc || el.id}] Center: (${el.center.x}, ${el.center.y}) Bounds: ${el.bounds}`
+      // 限制元素数量，避免 Prompt 过长，但提高上限
+      const simplifiedList = uiElements.slice(0, 200).map(el => 
+        `- [${el.text || el.desc || el.id}] Center: (${el.center.x}, ${el.center.y}) Bounds: ${el.bounds} Raw: ${el.raw}`
       ).join('\n');
       
       userMessage += `\n\n【强烈推荐】已识别的UI元素列表（请优先使用此处的精确坐标）：\n${simplifiedList}`;
-      if (uiElements.length > 50) {
-        userMessage += `\n... (还有 ${uiElements.length - 50} 个元素未显示)`;
+      if (uiElements.length > 200) {
+        userMessage += `\n... (还有 ${uiElements.length - 200} 个元素未显示)`;
       }
     } else if (uiDump) {
       // 降级使用 raw XML
@@ -305,13 +313,13 @@ class DoubaoAgent {
 
     // 如果有UI层级信息，添加到消息中
     if (uiElements && uiElements.length > 0) {
-      const simplifiedList = uiElements.slice(0, 50).map(el => 
-        `- [${el.text || el.desc || el.id}] Center: (${el.center.x}, ${el.center.y}) Bounds: ${el.bounds}`
+      const simplifiedList = uiElements.slice(0, 200).map(el => 
+        `- [${el.text || el.desc || el.id}] Center: (${el.center.x}, ${el.center.y}) Bounds: ${el.bounds} Raw: ${el.raw}`
       ).join('\n');
       
       userMessage += `\n\n【强烈推荐】已识别的UI元素列表（请优先使用此处的精确坐标）：\n${simplifiedList}`;
-      if (uiElements.length > 50) {
-        userMessage += `\n... (还有 ${uiElements.length - 50} 个元素未显示)`;
+      if (uiElements.length > 200) {
+        userMessage += `\n... (还有 ${uiElements.length - 200} 个元素未显示)`;
       }
     } else if (uiDump) {
       userMessage += `\n\n当前屏幕UI层级信息：\n\`\`\`xml\n${uiDump.substring(0, 10000)}\n\`\`\``;
