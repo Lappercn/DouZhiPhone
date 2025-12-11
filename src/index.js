@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import Orchestrator from './orchestrator/Orchestrator.js';
@@ -11,8 +11,22 @@ const __dirname = dirname(__filename);
 // 加载配置
 function loadConfig() {
   try {
-    const configPath = join(__dirname, '../config/default.json');
-    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    const defaultConfigPath = join(__dirname, '../config/default.json');
+    const defaultConfig = JSON.parse(readFileSync(defaultConfigPath, 'utf8'));
+    
+    const localConfigPath = join(__dirname, '../config/local.json');
+    let localConfig = {};
+    if (existsSync(localConfigPath)) {
+      localConfig = JSON.parse(readFileSync(localConfigPath, 'utf8'));
+    }
+    
+    // 简单的深拷贝合并 (或者使用 lodash.merge，这里手动合并关键部分)
+    const config = { ...defaultConfig, ...localConfig };
+    // 确保嵌套对象也被正确合并 (针对 doubao 配置)
+    if (localConfig.doubao) {
+      config.doubao = { ...defaultConfig.doubao, ...localConfig.doubao };
+    }
+    
     return config;
   } catch (error) {
     console.error('加载配置失败:', error.message);

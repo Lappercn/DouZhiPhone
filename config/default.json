@@ -1,8 +1,8 @@
 {
   "doubao": {
-    "apiKey": "333bdc4e-f043-4229-9a6c-c32afcc0b78f",
+    "apiKey": "YOUR_API_KEY_HERE",
     "apiUrl": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-    "model": "ep-20251129145701-8jnf6",
+    "model": "YOUR_MODEL_ENDPOINT_ID",
     "timeout": 300000
   },
   "adb": {
@@ -49,4 +49,3 @@
     "logDir": "./logs"
   }
 }
-

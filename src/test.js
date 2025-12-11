@@ -1,6 +1,6 @@
 // 简单的测试脚本
 import Orchestrator from './orchestrator/Orchestrator.js';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -8,8 +8,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 function loadConfig() {
-  const configPath = join(__dirname, '../config/default.json');
-  return JSON.parse(readFileSync(configPath, 'utf8'));
+  const defaultConfigPath = join(__dirname, '../config/default.json');
+  const defaultConfig = JSON.parse(readFileSync(defaultConfigPath, 'utf8'));
+  
+  const localConfigPath = join(__dirname, '../config/local.json');
+  let localConfig = {};
+  if (existsSync(localConfigPath)) {
+    localConfig = JSON.parse(readFileSync(localConfigPath, 'utf8'));
+  }
+  
+  const config = { ...defaultConfig, ...localConfig };
+  if (localConfig.doubao) {
+    config.doubao = { ...defaultConfig.doubao, ...localConfig.doubao };
+  }
+  
+  return config;
 }
 
 async function test() {
