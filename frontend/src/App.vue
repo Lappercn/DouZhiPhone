@@ -1,5 +1,20 @@
 <template>
-  <div class="app-container">
+  <div class="splash-screen" v-if="isLoading">
+    <div class="splash-content">
+      <div class="splash-logo">🤖</div>
+      <h1 class="splash-title">豆汁手机</h1>
+      <div class="splash-slogan">
+        <div class="slogan-line">字节有豆包</div>
+        <div class="slogan-line">我们有豆汁</div>
+        <div class="slogan-line highlight">豆汁助手你值得拥有</div>
+      </div>
+      <div class="loading-dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container" v-else>
     <el-container class="main-layout">
       <el-header class="app-header">
         <div class="header-content">
@@ -41,11 +56,153 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import ControlPanel from './components/ControlPanel.vue'
 import { UserFilled } from '@element-plus/icons-vue'
+
+const isLoading = ref(true)
+
+onMounted(() => {
+  // Show splash screen for 5 seconds to allow reading the slogan
+  setTimeout(() => {
+    isLoading.value = false
+  }, 5000)
+})
 </script>
 
 <style>
+/* Splash Screen Styles - Professional & Atmospheric */
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at 50% 50%, #1a2a40 0%, #0f172a 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+}
+
+/* Subtle background pattern */
+.splash-screen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+}
+
+.splash-content {
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.splash-logo {
+  font-size: 72px;
+  margin-bottom: 24px;
+  filter: drop-shadow(0 0 30px rgba(64, 158, 255, 0.4));
+  animation: logoFloat 3s ease-in-out infinite;
+}
+
+.splash-title {
+  font-size: 42px;
+  color: #ffffff;
+  margin: 0 0 48px 0;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: titleReveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.splash-slogan {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 60px;
+}
+
+.slogan-line {
+  font-size: 18px;
+  color: #94a3b8;
+  font-weight: 300;
+  letter-spacing: 1px;
+  opacity: 0;
+  transform: translateY(15px);
+  animation: fadeInUp 1s ease-out forwards;
+}
+
+.slogan-line:nth-child(1) { animation-delay: 1.2s; }
+.slogan-line:nth-child(2) { animation-delay: 2.0s; }
+.slogan-line:nth-child(3) { 
+  animation-delay: 3.0s;
+  font-size: 28px;
+  font-weight: 600;
+  margin-top: 16px;
+  background: linear-gradient(120deg, #60a5fa, #c084fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 2px;
+  filter: drop-shadow(0 2px 10px rgba(96, 165, 250, 0.3));
+}
+
+.loading-dots {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  opacity: 0;
+  animation: fadeIn 0.8s ease-out 4.0s forwards;
+}
+
+.loading-dots span {
+  width: 8px;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: dotPulse 1.4s infinite ease-in-out both;
+}
+
+.loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+.loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 30px rgba(64, 158, 255, 0.4)); }
+  50% { transform: translateY(-10px) scale(1.02); filter: drop-shadow(0 0 40px rgba(64, 158, 255, 0.6)); }
+}
+
+@keyframes titleReveal {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); filter: blur(10px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dotPulse {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+}
+
 :root {
   --primary-color: #409EFF;
   --bg-color: #f0f2f5;
