@@ -1,0 +1,12 @@
+node_modules/
+logs/
+*.log
+.DS_Store
+.env
+config/local.json
+*.png
+*.jpg
+screenshots/
+test_output/
+frontend/node_modules/
+frontend/dist/

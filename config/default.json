@@ -1,0 +1,52 @@
+{
+  "doubao": {
+    "apiKey": "333bdc4e-f043-4229-9a6c-c32afcc0b78f",
+    "apiUrl": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+    "model": "ep-20251129145701-8jnf6",
+    "timeout": 300000
+  },
+  "adb": {
+    "path": "adb",
+    "timeout": 8000,
+    "retryTimes": 3,
+    "retryDelay": 500
+  },
+  "execution": {
+    "maxRetries": 3,
+    "defaultBackoff": 500,
+    "verifyTimeout": 5000
+  },
+  "security": {
+    "whitelist": [
+      "input tap",
+      "input swipe",
+      "input text",
+      "am start",
+      "am force-stop",
+      "screencap",
+      "settings get",
+      "settings put",
+      "uiautomator dump",
+      "dumpsys activity",
+      "content query"
+    ],
+    "blockedCommands": [
+      " su ",
+      " reboot",
+      " rm -rf ",
+      " format ",
+      " wipe "
+    ],
+    "requireConfirm": [
+      "am force-stop",
+      "settings put secure",
+      "pm uninstall"
+    ]
+  },
+  "logging": {
+    "level": "info",
+    "saveToFile": true,
+    "logDir": "./logs"
+  }
+}
+
