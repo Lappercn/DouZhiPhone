@@ -49,7 +49,32 @@
 - **⚡ 高性能**：优化的 ADB 通信，智能输入处理（自动切换键盘、文本清除）。
 - **🛡️ 安全可控**：内置死循环检测和重复操作预警，防止自动化失控。
 
-## 🚀 新手教程
+## � 界面展示 (Gallery)
+
+<div align="center">
+  <img src="public/bg1.png" width="800" alt="沉浸式控制台" />
+  <p><strong>💻 沉浸式实时控制台 (Immersive Console)</strong><br><em>实时监控，全局掌控</em></p>
+  <br>
+</div>
+
+<div align="center">
+  <table align="center">
+    <tr>
+      <td align="center">
+        <img src="public/bg.png" width="350" alt="极速启动" />
+        <br>
+        <strong>🚀 极速启动 (Loading)</strong>
+      </td>
+      <td align="center">
+        <img src="public/wifi.png" width="350" alt="无线连接" />
+        <br>
+        <strong>📡 无线远程控制 (WiFi Control)</strong>
+      </td>
+    </tr>
+  </table>
+</div>
+
+## �🚀 新手教程
 
 ### 1. 准备工作 (Prerequisites)
 在开始之前，请确保你的电脑上安装了以下环境：
