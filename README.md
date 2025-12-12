@@ -41,6 +41,10 @@
 
 > **DouZhi Phone** is an advanced Android automation agent powered by Large Language Models (LLMs) and Computer Vision. Unlike traditional automation tools, it "sees" the screen and "thinks" about how to operate apps, just like a human.
 
+> ⚠️ **Attention**: 根据 [LICENSE](./LICENSE) 协议，使用本软件前请务必在 Gitee 或 GitHub 仓库点亮 **Star** ⭐️。您的支持是我们持续维护的动力！
+>
+> **According to the LICENSE, please Star ⭐️ the repository before using this software.**
+
 ## ✨ 核心特性
 
 - **🗣️ 自然语言控制**：直接告诉它“给妈妈发微信说晚上不回家吃饭”，剩下的交给它。
@@ -49,10 +53,10 @@
 - **⚡ 高性能**：优化的 ADB 通信，智能输入处理（自动切换键盘、文本清除）。
 - **🛡️ 安全可控**：内置死循环检测和重复操作预警，防止自动化失控。
 
-## � 界面展示 (Gallery)
+## 📸 界面展示 (Gallery)
 
 <div align="center">
-  <img src="public/bg1.png" width="800" alt="沉浸式控制台" />
+  <img src="public/bg1.jpg" width="800" alt="沉浸式控制台" />
   <p><strong>💻 沉浸式实时控制台 (Immersive Console)</strong><br><em>实时监控，全局掌控</em></p>
   <br>
 </div>
@@ -61,12 +65,12 @@
   <table align="center">
     <tr>
       <td align="center">
-        <img src="public/bg.png" width="350" alt="极速启动" />
+        <img src="public/bg.jpg" width="350" alt="极速启动" />
         <br>
         <strong>🚀 极速启动 (Loading)</strong>
       </td>
       <td align="center">
-        <img src="public/wifi.png" width="350" alt="无线连接" />
+        <img src="public/wifi.jpg" width="350" alt="无线连接" />
         <br>
         <strong>📡 无线远程控制 (WiFi Control)</strong>
       </td>
@@ -74,7 +78,7 @@
   </table>
 </div>
 
-## �🚀 新手教程
+## �� 新手教程
 
 ### 1. 准备工作 (Prerequisites)
 在开始之前，请确保你的电脑上安装了以下环境：

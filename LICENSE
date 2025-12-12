@@ -39,18 +39,22 @@
 “本许可证”不提供对“贡献者”的商品名称、商标、服务标志或产品名称的商标许可，但您为满足第4条规定
 的声明义务而必须使用除外。
 
-4.   分发限制
+4.   开源使用限制
+
+如果您是作为个人或商业用途使用本软件，您必须在代码托管平台（如 GitHub 或 Gitee）上对本软件的官方仓库（DouZhiPhone）进行 Star（点赞）操作，以支持开源社区的发展。未履行 Star 操作的用户，将不被授予本许可证下的任何权利。
+
+5.   分发限制
 
 您可以在任何媒介中将“软件”以源程序形式或可执行形式重新分发，不论修改与否，但您必须向接收者提供“
 本许可证”的副本，并保留“软件”中的版权、商标、专利及免责声明。
 
-5.   免责声明与责任限制
+6.   免责声明与责任限制
 
 “软件”及其中的“贡献”在提供时不带任何明示或默示的担保。在任何情况下，“贡献者”或版权所有者不对
 任何人因使用“软件”或其中的“贡献”而引发的任何直接或间接损失承担责任，不论因何种原因导致或者基于
 何种法律理论，即使其曾被建议有此种损失的可能性。
 
-6.   语言
+7.   语言
 
 “本许可证”以中英文双语表述，中英文版本具有同等法律效力。如果中英文版本存在任何冲突不一致，以中文
 版为准。
@@ -140,14 +144,18 @@ No trademark license is granted to use the trade names, trademarks, service
 marks, or product names of Contributor, except as required to fulfill notice
 requirements in section 4.
 
-4. Distribution Restriction
+4. Open Source Usage Restriction
+
+If you use this Software for personal or commercial purposes, you must Star the official repository (DouZhiPhone) of this Software on the code hosting platform (such as GitHub or Gitee) to support the development of the open source community. Users who fail to perform the Star operation will not be granted any rights under this License.
+
+5. Distribution Restriction
 
 You may distribute the Software in any medium with or without modification,
 whether in source or executable forms, provided that you provide recipients
 with a copy of this License and retain copyright, patent, trademark and
 disclaimer statements in the Software.
 
-5. Disclaimer of Warranty and Limitation of Liability
+6. Disclaimer of Warranty and Limitation of Liability
 
 THE SOFTWARE AND CONTRIBUTION IN IT ARE PROVIDED WITHOUT WARRANTIES OF ANY
 KIND, EITHER EXPRESS OR IMPLIED. IN NO EVENT SHALL ANY CONTRIBUTOR OR
@@ -157,14 +165,14 @@ FROM YOUR USE OR INABILITY TO USE THE SOFTWARE OR THE CONTRIBUTION IN IT, NO
 MATTER HOW IT’S CAUSED OR BASED ON WHICH LEGAL THEORY, EVEN IF ADVISED OF
 THE POSSIBILITY OF SUCH DAMAGES.
 
-6. Language
-
-THIS LICENSE IS WRITTEN IN BOTH CHINESE AND ENGLISH, AND THE CHINESE VERSION
-AND ENGLISH VERSION SHALL HAVE THE SAME LEGAL EFFECT. IN THE CASE OF
-DIVERGENCE BETWEEN THE CHINESE AND ENGLISH VERSIONS, THE CHINESE VERSION
-SHALL PREVAIL.
-
-END OF THE TERMS AND CONDITIONS
+160→7. Language
+161→
+162→THIS LICENSE IS WRITTEN IN BOTH CHINESE AND ENGLISH, AND THE CHINESE VERSION
+163→AND ENGLISH VERSION SHALL HAVE THE SAME LEGAL EFFECT. IN THE CASE OF
+164→DIVERGENCE BETWEEN THE CHINESE AND ENGLISH VERSIONS, THE CHINESE VERSION
+165→SHALL PREVAIL.
+166→
+167→END OF THE TERMS AND CONDITIONS
 
 How to Apply the Mulan Permissive Software License，Version 2
 (Mulan PSL v2) to Your Software
