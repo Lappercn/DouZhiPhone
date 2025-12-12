@@ -171,7 +171,7 @@ npm run dev
 ### ☕ 联系我们
 
 - **官方网站**: [www.tongzhilian.cn](https://www.tongzhilian.cn)
-- **Email**: contact@tongzhilian.cn
+- **Email**: shibaizhelianmeng@163.com
 
 让我们一起把“豆汁”熬得更浓、更香！🔥
 
