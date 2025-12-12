@@ -214,6 +214,11 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background-color: var(--bg-color);
   color: #303133;
+  /* Add subtle background pattern */
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(64, 158, 255, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(54, 209, 220, 0.08), transparent 25%);
+  background-attachment: fixed;
 }
 
 .app-container {
@@ -227,13 +232,23 @@ body {
 }
 
 .app-header {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.05);
   height: var(--header-height) !important;
   display: flex;
   align-items: center;
   padding: 0 40px;
   z-index: 100;
+  position: sticky;
+  top: 0;
+  transition: all 0.3s ease;
+}
+
+.app-header:hover {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
 }
 
 .header-content {

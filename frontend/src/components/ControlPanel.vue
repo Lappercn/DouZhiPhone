@@ -422,19 +422,30 @@ onMounted(() => {
   perspective: 1000px;
 }
 
-/* Glass Card Style */
+/* Glass Card Style - Enhanced */
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
   overflow: hidden;
-  transition: transform 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 15px 50px rgba(0, 0, 0, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 
 .control-area {
   padding: 24px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(245,247,250,0.9));
 }
 
 .panel-header {
@@ -444,13 +455,6 @@ onMounted(() => {
   margin-bottom: 20px;
   color: #2c3e50;
   font-weight: 600;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
 }
 
 .header-left {
@@ -490,16 +494,24 @@ onMounted(() => {
 .custom-textarea :deep(.el-textarea__inner) {
   border-radius: 16px;
   padding: 16px;
-  background: rgba(245, 247, 250, 0.8);
-  border: none;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  background: rgba(255, 255, 255, 0.6);
+  border: 2px solid transparent;
+  box-shadow: 
+    inset 0 2px 6px rgba(0,0,0,0.04),
+    0 1px 2px rgba(255,255,255,1);
   font-size: 15px;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Inter', system-ui, sans-serif;
+  line-height: 1.6;
 }
 
 .custom-textarea :deep(.el-textarea__inner:focus) {
   background: #fff;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+  border-color: rgba(64, 158, 255, 0.3);
+  box-shadow: 
+    0 0 0 4px rgba(64, 158, 255, 0.1),
+    0 8px 24px rgba(64, 158, 255, 0.15);
+  transform: translateY(-1px);
 }
 
 .action-buttons {
@@ -508,14 +520,39 @@ onMounted(() => {
   margin-left: 10px;
 }
 
+/* Button Styling */
 .send-btn {
+  background: linear-gradient(135deg, #409EFF, #3a8ee6) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+  transition: all 0.3s !important;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   height: auto !important;
   padding: 0 20px !important;
 }
 
+.send-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+  filter: brightness(1.1);
+}
+
+.send-btn:active {
+  transform: translateY(0);
+}
+
 .control-btn {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s !important;
+  border: none !important;
   height: auto !important;
   padding: 0 15px !important;
+}
+
+.control-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
 }
 
 /* 按钮图标间距 */
@@ -523,21 +560,7 @@ onMounted(() => {
   margin-right: 4px;
 }
 
-/* Log Area */
-.log-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.log-area .panel-header {
-  padding: 16px 24px;
-  margin-bottom: 0;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-  background: rgba(255,255,255,0.5);
-}
-
-/* AI Agent Visualizer Styles */
+/* AI Agent Visualizer Styles - Enhanced */
 .agent-area {
   display: flex;
   flex-direction: column;
@@ -558,13 +581,13 @@ onMounted(() => {
 }
 
 .agent-visualizer {
-  height: 140px;
+  height: 160px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(to bottom, #f8fafd, #ffffff);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: radial-gradient(circle at center, #f8fafd 0%, #edf2f7 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
   position: relative;
 }
 
@@ -580,6 +603,7 @@ onMounted(() => {
   position: relative;
   width: 60px;
   height: 60px;
+  filter: drop-shadow(0 0 15px rgba(64, 158, 255, 0.2));
 }
 
 .core-inner {
@@ -700,15 +724,40 @@ onMounted(() => {
   100% { transform: rotate(360deg) translateX(40px) rotate(-360deg); opacity: 0; }
 }
 
+/* Terminal View - Enhanced */
 .terminal-view {
   flex: 1;
-  background: #ffffff;
+  background: #fdfdfd;
+  background-image: 
+    linear-gradient(#f1f5f9 1px, transparent 1px),
+    linear-gradient(90deg, #f1f5f9 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: -1px -1px;
   padding: 16px;
   overflow-y: auto;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px;
   line-height: 1.6;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Custom Scrollbar for Terminal */
+.terminal-view::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-view::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-view::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  border: 2px solid #fdfdfd;
+}
+
+.terminal-view::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .terminal-empty {
@@ -720,7 +769,7 @@ onMounted(() => {
   font-style: italic;
 }
 
-/* 粒子日志样式 - 现代科技白底风格 */
+/* Log Stream */
 .log-stream {
   position: relative;
   padding-left: 15px;
@@ -736,6 +785,7 @@ onMounted(() => {
   background: linear-gradient(to bottom, transparent, #e0e6ed, transparent);
 }
 
+/* Log Rows - Enhanced */
 .log-row {
   position: relative;
   margin-bottom: 12px;
@@ -745,17 +795,21 @@ onMounted(() => {
   opacity: 0;
   animation: slideInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   padding: 8px 12px;
-  border-radius: 8px;
-  background: rgba(248, 250, 252, 0.5);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
   transition: all 0.2s;
-  border: 1px solid transparent;
 }
 
 .log-row:hover {
   background: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-  border-color: #f0f2f5;
-  transform: translateX(4px);
+  border-color: rgba(64, 158, 255, 0.3);
+  box-shadow: 
+    0 4px 12px rgba(64, 158, 255, 0.08),
+    0 0 0 1px rgba(64, 158, 255, 0.1);
+  transform: translateX(6px) scale(1.005);
 }
 
 .log-row::before {
@@ -803,15 +857,16 @@ onMounted(() => {
 .log-row.error::before { border-color: #f56c6c; box-shadow: 0 0 0 2px rgba(245, 108, 108, 0.2); }
 
 .step-tag {
-  background: linear-gradient(135deg, #409EFF, #36D1DC);
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
   color: #fff;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 12px;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 10px;
   margin-right: 8px;
-  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.3);
-  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
   border: none;
 }
 
@@ -820,14 +875,15 @@ onMounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Phone Mockup */
+/* Phone Mockup - Enhanced */
 .phone-mockup {
   position: relative;
   width: 320px;
   height: 650px;
   transform-style: preserve-3d;
   transform: rotateY(-5deg) rotateX(5deg);
-  transition: transform 0.5s ease;
+  transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  filter: drop-shadow(0 25px 50px rgba(0, 0, 0, 0.25));
 }
 
 .phone-mockup:hover {
@@ -837,13 +893,12 @@ onMounted(() => {
 .phone-body {
   width: 100%;
   height: 100%;
-  background: #121212;
+  background: #000;
   border-radius: 48px;
-  border: 4px solid #2c2c2c;
+  border: 6px solid #1a1a1a;
   box-shadow: 
-    0 0 0 2px #4a4a4a,
-    0 20px 50px rgba(0,0,0,0.4),
-    inset 0 0 20px rgba(0,0,0,0.8);
+    inset 0 0 0 2px #333,
+    inset 0 0 20px rgba(255,255,255,0.1);
   position: relative;
   overflow: hidden;
   padding: 12px;
@@ -869,6 +924,7 @@ onMounted(() => {
   border-radius: 36px;
   overflow: hidden;
   position: relative;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
 }
 
 .screen-img {
