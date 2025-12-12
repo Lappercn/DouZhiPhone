@@ -8,6 +8,11 @@
             <div class="header-left">
               <el-icon class="pulse-icon"><Operation /></el-icon>
               <span>任务控制中心</span>
+              <el-tooltip content="连接远程 Wi-Fi 设备" placement="top">
+                <el-button type="primary" link @click="showWifiDialog = true" class="wifi-btn">
+                  <el-icon><Connection /></el-icon>
+                </el-button>
+              </el-tooltip>
             </div>
             <el-select 
               v-model="form.deviceSerial" 
@@ -151,6 +156,43 @@
       </div>
     </div>
   </div>
+
+  <!-- Wi-Fi 连接对话框 -->
+  <el-dialog v-model="showWifiDialog" title="无线连接设备" width="400px" append-to-body>
+    <el-form :model="wifiForm" label-width="80px">
+      <el-alert
+        title="提示：首次连接需先用 USB 连接并开启 TCP/IP 模式"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 20px"
+      />
+      <el-form-item label="IP地址">
+        <el-input v-model="wifiForm.ip" placeholder="例如: 192.168.1.5" />
+      </el-form-item>
+      <el-form-item label="端口">
+        <el-input v-model="wifiForm.port" placeholder="默认: 5555" />
+      </el-form-item>
+      <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 12px; color: #606266;">
+        <p style="font-weight: bold; margin-bottom: 5px;">如何查看手机 IP？</p>
+        <p>1. 打开手机【设置】->【WLAN】</p>
+        <p>2. 点击当前连接的 Wi-Fi 详情</p>
+        <p>3. 找到【IP地址】一栏 (例如 192.168.1.5)</p>
+        <p style="margin-top: 5px; color: #e6a23c;">注意：电脑和手机必须连接同一个 Wi-Fi</p>
+      </div>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="enableTcpIpMode" type="success" plain size="small" style="float: left" v-if="form.deviceSerial && !form.deviceSerial.includes(':')">
+          <el-icon><Iphone /></el-icon> 对当前USB设备开启WIFI模式
+        </el-button>
+        <el-button @click="showWifiDialog = false">取消</el-button>
+        <el-button type="primary" @click="connectWifi" :loading="wifiConnecting">
+          连接
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -158,7 +200,7 @@ import { ref, onMounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 import { ElMessage } from 'element-plus'
-import { Operation, Position, Tickets, Iphone, VideoPause, VideoPlay, SwitchButton, Cpu } from '@element-plus/icons-vue'
+import { Operation, Position, Tickets, Iphone, VideoPause, VideoPlay, SwitchButton, Cpu, Connection } from '@element-plus/icons-vue'
 
 const API_BASE = 'http://localhost:3000'
 const socket = io(API_BASE)
@@ -170,6 +212,14 @@ const taskStatus = ref('idle') // idle, running, paused
 const currentReqId = ref(null)
 const screenshotUrl = ref('')
 const logWindow = ref(null)
+
+// Wi-Fi 连接相关
+const showWifiDialog = ref(false)
+const wifiConnecting = ref(false)
+const wifiForm = ref({
+  ip: '',
+  port: '5555'
+})
 
 const form = ref({
   deviceSerial: '',
@@ -273,6 +323,50 @@ const manualRefreshScreenshot = () => {
 
 const clearLogs = () => logs.value = []
 
+// 开启 TCP/IP 模式
+const enableTcpIpMode = async () => {
+  if (!form.value.deviceSerial) return ElMessage.warning('请先选择一个已连接的 USB 设备')
+  
+  try {
+    const res = await axios.post(`${API_BASE}/api/device/tcpip`, {
+      serial: form.value.deviceSerial,
+      port: 5555
+    })
+    if (res.data.success) {
+      ElMessage.success('已开启 Wi-Fi 调试模式，请断开 USB 线并输入 IP 连接')
+    } else {
+      ElMessage.error('开启失败: ' + res.data.error)
+    }
+  } catch (err) {
+    ElMessage.error('请求失败')
+  }
+}
+
+// 连接 Wi-Fi 设备
+const connectWifi = async () => {
+  if (!wifiForm.value.ip) return ElMessage.warning('请输入 IP 地址')
+  
+  wifiConnecting.value = true
+  try {
+    const res = await axios.post(`${API_BASE}/api/device/connect`, {
+      ip: wifiForm.value.ip,
+      port: parseInt(wifiForm.value.port) || 5555
+    })
+    
+    if (res.data.success) {
+      ElMessage.success('连接成功')
+      showWifiDialog.value = false
+      refreshDevices() // 刷新设备列表
+    } else {
+      ElMessage.error('连接失败: ' + res.data.message)
+    }
+  } catch (err) {
+    ElMessage.error('连接请求失败')
+  } finally {
+    wifiConnecting.value = false
+  }
+}
+
 onMounted(() => {
   refreshDevices()
   
@@ -357,6 +451,26 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.wifi-btn {
+  margin-left: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #409EFF;
+}
+
+.wifi-btn:hover {
+  background: rgba(64, 158, 255, 0.1);
 }
 
 .pulse-icon {

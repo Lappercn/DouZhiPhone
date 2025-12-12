@@ -11,100 +11,141 @@ class DoubaoAgent {
   }
 
   /**
-   * 构建系统提示词（通用 Android 智能体模式）
+   * 构建系统提示词（通用 Android 智能体模式 - Open-AutoGLM 风格）
    */
   buildSystemPrompt() {
-    return `你是一位全能型 Android 智能助手。你的目标是利用一切可用手段（ADB、Shell、UI 操作、视觉识别）来解决用户在 Android 设备上的任何需求。
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 
-## 核心角色定义：
-你不仅是一个简单的自动化脚本执行者，你是 Android 领域的专家。
-- **对于应用操作**：你可以像人类一样点击、滑动、输入，操作任何 App。
-- **对于系统管理**：你可以修改设置、管理文件、查看进程、调试系统。
-- **对于信息获取**：你可以阅读屏幕内容、提取数据、分析界面布局。
+    return `今天的日期是: ${dateStr}
 
-## 你的能力边界：
-你可以执行任何 adb shell 允许的操作。不要局限于“点击按钮”。
-- 需要安装应用？直接 \`pm install\`
-- 需要打开网页？直接 \`am start -a android.intent.action.VIEW -d url\`
-- 需要提取日志？直接 \`logcat -d\`
-- 需要查看当前 Activity？直接 \`dumpsys activity\`
-- 需要操作界面？使用 \`input tap/swipe/text\`
+你是一个智能体分析专家，可以根据操作历史和当前状态图执行一系列操作来完成任务。
+你必须严格按照要求输出以下格式：
+<think>{think}</think>
+<answer>{action}</answer>
 
-## 决策流程（Observation-Thought-Action）：
-1. **感知（Observe）**：
-   - 仔细分析用户提供的**屏幕截图**（视觉信息）。
-   - **核心参考：UI 元素列表（UI Elements）**。这个列表提供了屏幕上所有可点击元素的**精确中心点坐标 (center)**。
-   - 结合**Window Dump**（系统层级状态）。
-   
-2. **思考（Think）**：
-   - **反思（Reflection）**：回顾上一步操作是否成功？界面是否发生了预期变化？
-   - **检查（Check）**：如果是发消息任务，检查聊天记录里是否已经出现了刚才发送的内容？输入框是否变空了？
-   - **规划（Plan）**：优先在 **UI 元素列表** 中寻找与目标匹配的元素。
-   - **如果找到匹配元素，建议直接使用其提供的 center 坐标进行点击**。
-   - **如果 UI 列表里找不到明确的 text/desc**，请尝试寻找 type="clickable_area" 且位置（bounds）符合视觉预期的元素。
-   - **如果 UI 列表完全没有相关元素**（例如纯图像绘制的界面），请大胆基于**截图**进行视觉估算。
-   - 如果必须视觉估算，请参考屏幕分辨率进行比例换算。
+其中：
+- {think} 是你的**思考过程（Critical Thinking Process）**。你必须在此处展示你是如何观察截图、分析当前状态、检查上一步结果、并推导出下一步行动的。
+- {action} 是本次执行的具体操作指令，必须严格遵循下方定义的指令格式。
 
-3. **行动（Act）**：
-   - 生成具体的 ADB 命令。
-   - **点击优化**：如果是点击操作，尽量使用 input tap x y，其中 x,y 来自 UI 列表的精确值。
-   - **说明理由**：在 thought 字段中说明你选择该坐标的理由。
+**操作指令（Action Definitions）：**
+- do(action="Launch", app="xxx")
+    Launch是启动目标app的操作。app参数必须指定应用名称（如"微信"）。
+    **注意**：只有当当前不在目标App时才使用。如果已经在目标App内（即使在子页面），严禁使用Launch。
+- do(action="Tap", element=[x,y])
+    Tap是点击操作，点击屏幕上的特定点。element参数是必须的，格式为[x,y]。坐标系统从左上角 (0,0) 开始到右下角 (1000,1000) 结束。
+- do(action="Type", text="xxx")
+    Type是输入操作，在当前聚焦的输入框中输入文本。text参数是必须的。
+    **注意**：Type操作会自动清除输入框中原有的文本（包括占位符），你**不需要**在Type前手动清除文本。
+    **前提**：使用Type前，请确保输入框已经处于激活状态（例如看到了光标或键盘）。如果未激活，请先Tap输入框。
+- do(action="Swipe", start=[x1,y1], end=[x2,y2])
+    Swipe是滑动操作。start和end参数是必须的。坐标系统 (0,0) 到 (1000,1000)。
+    如果滑动不生效，尝试增大滑动距离。
+- do(action="Back")
+    返回上一个界面。
+- do(action="Home")
+    回到桌面。
+- do(action="Wait", duration="x seconds")
+    等待页面加载。当页面正在加载，或者上一步操作后界面没有预期变化时使用。
+- do(action="Long Press", element=[x,y])
+    长按操作。element参数是必须的。
+- do(action="Double Tap", element=[x,y])
+    双击操作。element参数是必须的。
+- finish(message="xxx")
+    任务完成。
 
-## 交互协议（JSON）：
-为了与执行系统对接，你必须将思考结果转换为以下标准 JSON 格式。
-**严禁缺少 steps 中的 id 和 cmd 字段**。
+**思考过程（<think>）必须包含以下步骤：**
+1. **观察（Observation）**：
+   - 当前截图里有什么？（例如：看到了微信主界面、看到了搜索框、看到了键盘弹出、看到了聊天窗口等）。
+   - 当前前台应用是什么？
+2. **反思（Reflection）**：
+   - **上一步操作是什么？**（查看 User Message 中的 Last Action）
+   - **执行成功了吗？** 观察截图，判断界面是否发生了预期的变化。
+   - **自我纠错（Self-Correction）**：
+     - 如果上一步是 Launch，现在是否已经进入了目标 App？如果已经进入，**绝对不要**再次 Launch。
+     - 如果上一步是 Tap，界面是否跳转？如果没跳转，是否需要 Wait？或者点击位置不对？
+     - 如果上一步是 Type，输入框里是否有字了？如果有字，**不要**再次 Type，应该寻找下一步操作（如点击搜索）。
+     - 如果我正打算执行 Launch，但我发现已经在该 App 里了，我必须取消 Launch，改为执行 App 内的操作。
+3. **决策（Decision）**：
+   - 基于以上观察和反思，下一步最合理的操作是什么？
 
-\`\`\`json
-{
-  "steps": [
-    {
-      "id": "unique_step_id",
-      "desc": "简明扼要的步骤描述",
-      "cmd": "adb shell <具体的命令>",
-      "wait_after": 1000
+**必须遵循的规则：**
+ 1. 坐标系是 0-1000 的相对坐标。
+ 2. **Launch 规则（绝对禁止重复启动）**：
+    - 只有当用户明确要求打开新 App，且当前界面明显不是该 App 时，才执行 Launch。
+    - **如果视觉上已经在目标 App 内（例如看到了微信列表、搜索框等），绝对禁止执行 Launch。**
+ 3. **Type 规则**：
+    - 如果输入框已有文字且正确，不要重复 Type。
+    - Type 会自动清空原有文本，不要手动删除。
+ 4. **视觉闭环验证（CRITICAL）**：
+    - 每一步操作前，**必须**先仔细观察截图，确认上一步操作是否生效。
+    - 如果连续两次操作无效，请尝试 Wait 或 Back，或者更换策略。
+ 5. **任务完成判断（CRITICAL）**：
+    - **不要恋战**：一旦观察到界面状态已经满足用户需求（例如：用户要求“打开微信”，而你已经看到了微信聊天列表），**必须立即执行 finish**。
+    - **不要重复**：如果你发现自己正在重复执行相同的操作（如重复点击同一个按钮），请立即停止。反思任务是否已经完成了？或者是否陷入了死循环？如果是，请 finish 并说明情况。
+ 6. **参数完整性**：执行 Tap/Double Tap/Long Press 时必须提供 element=[x,y] 参数。执行 Type 时必须提供 text 参数。
+ 7. 严格遵循用户意图。
+`;
+  }
+
+  /**
+   * 解析动作字符串 do(action="Tap", ...)
+   */
+  parseAction(actionStr) {
+    actionStr = actionStr.trim();
+    
+    // 处理 finish
+    if (actionStr.startsWith('finish')) {
+      const msgMatch = actionStr.match(/message=["'](.+?)["']/);
+      return {
+        action: 'finish',
+        message: msgMatch ? msgMatch[1] : 'Task completed',
+        _raw: actionStr
+      };
     }
-  ],
-  "thought": "简述你的思考过程（可选）",
-  "risks": []
-}
-\`\`\`
 
-## 关键执行策略：
-### 1. 灵活应对 UI 操作（视觉 + 坐标）
-- **优先策略：UI 列表坐标 > 视觉估算坐标**。
-- 系统会提供一个 ui_elements 列表，其中包含了屏幕上所有可交互元素的文本、ID 和**精确中心点坐标**。
-- **任务执行前，先查表**：比如你要点“设置”，先看列表里有没有 text="设置" 的元素。如果有，直接用它的 center 坐标，**准确率 100%**。
-- 如果列表中找不到（例如纯图片按钮），请参考 type="clickable_area" 的元素，结合截图位置进行推断。
-- 只有当 XML 获取失败或列表里完全没有目标线索时，才使用视觉估算。
-- **点击偏差处理**：如果之前的点击无效，请尝试微调坐标（偏移 10-30px）或改变点击位置（中心/边缘）。
+    // 处理 do
+    if (actionStr.startsWith('do')) {
+      const content = actionStr.slice(3, -1); // 去掉 do( ... )
+      const result = {};
+      
+      // 简单的参数解析器
+      // 匹配 key="value" 或 key=[1,2] 或 key=[ 1, 2 ]
+      // 增强正则：允许数组内有空格
+      const regex = /(\w+)=(?:["']([^"']*)["']|\[([\d,\s]+)\])/g;
+      let match;
+      while ((match = regex.exec(content)) !== null) {
+        const key = match[1];
+        const strValue = match[2];
+        const arrayValue = match[3];
+        
+        if (arrayValue) {
+          // 处理数组内的空格
+          result[key] = arrayValue.split(',').map(item => Number(item.trim()));
+        } else {
+          result[key] = strValue;
+        }
+      }
+      
+      // 验证必要参数
+      if (['Tap', 'Double Tap', 'Long Press'].includes(result.action) && !result.element) {
+          throw new Error(`动作 ${result.action} 缺少必须参数: element=[x,y]`);
+      }
+      if (['Type', 'Type_Name'].includes(result.action) && !result.text) {
+          throw new Error(`动作 ${result.action} 缺少必须参数: text="xxx"`);
+      }
+      if (['Swipe'].includes(result.action) && (!result.start || !result.end)) {
+          throw new Error(`动作 ${result.action} 缺少必须参数: start=[x,y], end=[x,y]`);
+      }
+      if (['Launch'].includes(result.action) && !result.app) {
+          throw new Error(`动作 ${result.action} 缺少必须参数: app="xxx"`);
+      }
 
-### 2. 结果验证（闭环思维）
-- 不要盲目执行。每一步操作后，必须考虑“我怎么知道成功了没？”。
-- **视觉验证**：例如发送消息后，看到消息气泡出现在屏幕上，即视为成功。
-- **状态验证**：例如打开应用后，检查前台 Activity 是否变化。输入文字后，检查输入框是否已有内容。发送后，检查输入框是否变空。
-- **防止重复**：如果你发现你正要执行的操作（如点击发送）在之前的步骤中已经做过了，**请立刻停下来检查**！很可能已经成功了，只是你没注意到。
-- **任务完成**：一旦确认目标达成（如消息已上屏），立即返回空步骤数组结束任务。
+      result._raw = actionStr;
+      return result;
+    }
 
-### 3. 文本输入规范
-- **必须使用**：\`adb shell input text "内容"\`
-- **中文支持**：系统已内置 ADBKeyBoard，直接发送中文即可，无需特殊处理。
-
-### 4. 异常处理
-- 如果遇到弹窗干扰，规划步骤去关闭它。
-- 如果应用无响应，考虑重启应用 (\`am force-stop\` 后再启动)。
-- 如果重复操作无效，**必须**更换策略（例如从点击改为滑动，或使用 Shell 命令直接调起）。
-
-## 任务完成信号：
-当且仅当通过视觉或状态确认任务已彻底完成时，返回：
-\`\`\`json
-{
-  "steps": [],
-  "completed": true,
-  "message": "任务已完成：<简述结果>"
-}
-\`\`\`
-
-请严格遵守 JSON 格式，不要输出 Markdown 标记以外的多余文本。`;
+    throw new Error(`无法解析动作: ${actionStr}`);
   }
 
   /**
@@ -178,94 +219,6 @@ class DoubaoAgent {
   }
 
   /**
-   * 解析用户需求并生成初始执行计划
-   */
-  async generatePlan(userQuery, deviceInfo = {}, uiDump = null, windowInfo = null, screenshot = null, uiElements = null) {
-    const systemPrompt = this.buildSystemPrompt();
-    
-    // 构建用户消息
-    let userMessage = `用户需求：${userQuery}
-
-设备基本信息：
-- 序列号：{serial}
-- 型号：${deviceInfo.model || 'Unknown'}
-- Android版本：${deviceInfo.androidVersion || 'Unknown'}
-
-🔴 **屏幕分辨率（非常重要）**：
-- 宽度：${deviceInfo.screenSize?.width || 0} px
-- 高度：${deviceInfo.screenSize?.height || 0} px
-- 请务必基于此分辨率计算坐标！不要超出边界！`;
-
-    // 添加 Window Dump 信息
-    if (windowInfo) {
-      userMessage += `\n\n当前窗口状态 (Window Dump)：\n`;
-      userMessage += `- 前台应用: ${windowInfo.focusedApp || 'Unknown'}\n`;
-      userMessage += `- 键盘状态: ${windowInfo.hasKeyboard ? '已弹出' : '未弹出'}\n`;
-      userMessage += `- 可见窗口: ${windowInfo.visibleWindows.join(', ')}\n`;
-    }
-
-    // 如果有UI层级信息，添加到消息中
-    if (uiElements && uiElements.length > 0) {
-      // 优先使用简化的UI元素列表（提供精确坐标）
-      // 限制元素数量，避免 Prompt 过长，但提高上限
-      const simplifiedList = uiElements.slice(0, 200).map(el => 
-        `- [${el.text || el.desc || el.id}] Center: (${el.center.x}, ${el.center.y}) Bounds: ${el.bounds} Raw: ${el.raw}`
-      ).join('\n');
-      
-      userMessage += `\n\n【强烈推荐】已识别的UI元素列表（请优先使用此处的精确坐标）：\n${simplifiedList}`;
-      if (uiElements.length > 200) {
-        userMessage += `\n... (还有 ${uiElements.length - 200} 个元素未显示)`;
-      }
-    } else if (uiDump) {
-      // 降级使用 raw XML
-      userMessage += `\n\n当前屏幕UI层级信息：\n\`\`\`xml\n${uiDump.substring(0, 10000)}\n\`\`\``; // 截断过长的XML
-    } else {
-      userMessage += `\n\n(无法获取UI层级，请完全依赖视觉和分辨率进行坐标估算)`;
-    }
-    
-    if (screenshot) {
-      userMessage += `\n\n(已附带当前屏幕截图，请结合图片分析界面)`;
-    }
-
-    try {
-      // 传递 screenshot
-      const images = screenshot ? [screenshot] : [];
-      const response = await this.callAPI(userMessage, systemPrompt, images);
-      
-      // 尝试提取JSON（可能包含markdown代码块）
-      let jsonStr = response.trim();
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      } else if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.replace(/```\n?/g, '').trim();
-      }
-
-      let plan;
-      try {
-        plan = JSON.parse(jsonStr);
-      } catch (e) {
-        this.logger.error('JSON解析失败', e, { jsonStr });
-        throw new Error('模型返回的JSON格式无效');
-      }
-      
-      // 验证计划结构（允许空步骤数组表示完成）
-      if (plan.steps && plan.steps.length > 0) {
-        try {
-          this.validatePlan(plan);
-        } catch (validationError) {
-          this.logger.error('计划验证失败', validationError, { plan });
-          throw validationError;
-        }
-      }
-      
-      return plan;
-    } catch (error) {
-      this.logger.error('Failed to generate plan', error);
-      throw new Error(`计划生成失败: ${error.message}`);
-    }
-  }
-
-  /**
    * 基于当前屏幕状态规划下一步（观察-行动循环）
    */
   async planNextStep(userQuery, uiDump, deviceInfo = {}, executionHistory = [], repeatedOps = [], windowInfo = null, screenshot = null, uiElements = null) {
@@ -273,99 +226,89 @@ class DoubaoAgent {
     
     let userMessage = `用户需求：${userQuery}
 
-设备基本信息：
-- 序列号：{serial}
-- 型号：${deviceInfo.model || 'Unknown'}
-- Android版本：${deviceInfo.androidVersion || 'Unknown'}
-
-🔴 **屏幕分辨率（非常重要）**：
-- 宽度：${deviceInfo.screenSize?.width || 0} px
-- 高度：${deviceInfo.screenSize?.height || 0} px
-- 请务必基于此分辨率计算坐标！不要超出边界！`;
+当前界面状态：
+`;
 
     // 添加 Window Dump 信息
     if (windowInfo) {
-      userMessage += `\n\n当前窗口状态 (Window Dump)：\n`;
-      userMessage += `- 前台应用: ${windowInfo.focusedApp || 'Unknown'}\n`;
-      userMessage += `- 键盘状态: ${windowInfo.hasKeyboard ? '已弹出' : '未弹出'}\n`;
-      userMessage += `- 可见窗口: ${windowInfo.visibleWindows.join(', ')}\n`;
+        userMessage += `\n** Window Info **\n`;
+        userMessage += `- App: ${windowInfo.focusedApp || 'Unknown'}\n`;
     }
 
-    // 添加执行历史
-    if (executionHistory.length > 0) {
-      userMessage += `\n\n已执行步骤：\n`;
-      executionHistory.slice(-5).forEach((step, idx) => {
-        userMessage += `${idx + 1}. ${step.desc || step.id}: ${step.success ? '成功' : '失败'}\n`;
-      });
-    }
-    
-    // 如果有重复操作，提醒模型换方法
-    if (repeatedOps.length > 0) {
-      userMessage += `\n\n⚠️ 重要提醒：以下操作已经重复执行多次但没有进展：\n`;
-      repeatedOps.forEach(op => {
-        userMessage += `- ${op}\n`;
-      });
-      userMessage += `\n请立即停止重复这些操作，尝试以下策略：\n`;
-      userMessage += `- **微调坐标**：如果是点击操作，请尝试在原坐标周围偏移 10-30 像素\n`;
-      userMessage += `- **换个位置**：如果是按钮，尝试点击按钮的中心或边缘\n`;
-      userMessage += `- **换种方法**：如果多次获取UI层级没有进展，尝试滑动、点击或返回\n`;
+    // 添加 上一步操作 信息
+    if (executionHistory && executionHistory.length > 0) {
+        const lastStep = executionHistory[executionHistory.length - 1];
+        // 简化 lastStep 信息，只保留关键字段
+        const simpleLastStep = {
+            action: lastStep.action,
+            // 如果有 element, text, app 等参数，也应该展示
+            ...lastStep
+        };
+        // 移除 rawResponse 等冗余信息
+        delete simpleLastStep.rawResponse;
+        delete simpleLastStep.thinking;
+        delete simpleLastStep._raw;
+
+        userMessage += `\n** 上一步操作 (Last Action) **\n${JSON.stringify(simpleLastStep, null, 2)}\n`;
     }
 
-    // 如果有UI层级信息，添加到消息中
+    // 添加 UI 元素 (Open-AutoGLM 风格，只是简单的文本描述辅助，主要靠视觉)
     if (uiElements && uiElements.length > 0) {
-      const simplifiedList = uiElements.slice(0, 200).map(el => 
-        `- [${el.text || el.desc || el.id}] Center: (${el.center.x}, ${el.center.y}) Bounds: ${el.bounds} Raw: ${el.raw}`
-      ).join('\n');
-      
-      userMessage += `\n\n【强烈推荐】已识别的UI元素列表（请优先使用此处的精确坐标）：\n${simplifiedList}`;
-      if (uiElements.length > 200) {
-        userMessage += `\n... (还有 ${uiElements.length - 200} 个元素未显示)`;
-      }
-    } else if (uiDump) {
-      userMessage += `\n\n当前屏幕UI层级信息：\n\`\`\`xml\n${uiDump.substring(0, 10000)}\n\`\`\``;
-    }
-    
-    if (screenshot) {
-      userMessage += `\n\n(已附带当前屏幕截图，请结合图片分析界面)`;
+        // 转换坐标为 0-1000 相对坐标
+        const width = deviceInfo.screenSize?.width || 1080;
+        const height = deviceInfo.screenSize?.height || 2400;
+        
+        const simplifiedList = uiElements.slice(0, 50).map(el => {
+            const relX = Math.round((el.center.x / width) * 1000);
+            const relY = Math.round((el.center.y / height) * 1000);
+            return `- ${el.text || el.desc || el.id} @ [${relX},${relY}]`;
+        }).join('\n');
+        
+        userMessage += `\n** UI Elements (Reference) **\n${simplifiedList}\n`;
     }
 
-    userMessage += `\n\n请基于当前实际状态，规划下一步操作。`;
+    userMessage += `\n请观察截图和上述信息，输出下一步操作。Remember to use <think> and <answer> tags.`;
 
     try {
-       // 传递 screenshot
        const images = screenshot ? [screenshot] : [];
        const response = await this.callAPI(userMessage, systemPrompt, images);
       
-      // 尝试提取JSON
-      let jsonStr = response.trim();
-      if (jsonStr.startsWith('```json')) {
-        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      } else if (jsonStr.startsWith('```')) {
-        jsonStr = jsonStr.replace(/```\n?/g, '').trim();
-      }
+      // 解析 <think> 和 <answer>
+      const thinkMatch = response.match(/<think>([\s\S]*?)<\/think>/);
+      const answerMatch = response.match(/<answer>([\s\S]*?)<\/answer>/);
 
-      let plan;
+      const thinking = thinkMatch ? thinkMatch[1].trim() : '';
+      const actionStr = answerMatch ? answerMatch[1].trim() : response.trim(); // Fallback if tags missing
+
+      let action;
       try {
-        plan = JSON.parse(jsonStr);
+        action = this.parseAction(actionStr);
       } catch (e) {
-        this.logger.error('JSON解析失败', e, { jsonStr });
-        throw new Error('模型返回的JSON格式无效');
+        this.logger.error('动作解析失败', e, { actionStr });
+        // 尝试修复或返回错误
+        throw new Error(`动作解析失败: ${actionStr}`);
       }
 
-      if (plan.steps && plan.steps.length > 0) {
-        try {
-          this.validatePlan(plan);
-        } catch (validationError) {
-          this.logger.error('计划验证失败', validationError, { plan });
-          throw validationError;
-        }
-      }
-      return plan;
+      return {
+          action: action,
+          thinking: thinking,
+          rawResponse: response
+      };
+
     } catch (error) {
       this.logger.error('Failed to plan next step', error);
       throw new Error(`规划失败: ${error.message}`);
     }
   }
+
+  /**
+   * 兼容旧接口的 generatePlan (用于第一步)
+   * 实际上第一步和后续步骤逻辑一样，只是 prompt 可能不同
+   */
+  async generatePlan(userQuery, deviceInfo, uiDump, windowInfo, screenshot, uiElements) {
+      return this.planNextStep(userQuery, uiDump, deviceInfo, [], [], windowInfo, screenshot, uiElements);
+  }
+
 
   /**
    * 判断是否需要先观察

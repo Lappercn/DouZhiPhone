@@ -175,13 +175,15 @@ class Orchestrator {
 
       try {
         // 并行获取各种状态信息，提高效率
-        const [dump, winDumpRaw, screenBase64] = await Promise.all([
-          this.deviceManager.getUIADump(serial),
+        // 移除 getUIADump，因为 uiautomator dump 速度慢且容易出错，我们改用纯视觉+Activity Dump方案
+        // 移除 getUIFromActivityDump，用户要求纯视觉
+        const [winDumpRaw, screenBase64, foregroundApp] = await Promise.all([
+          // this.deviceManager.getUIADump(serial), // 禁用旧的 UIA Dump
           this.deviceManager.getWindowDump(serial),
-          this.deviceManager.getScreenshotBase64(serial)
+          this.deviceManager.getScreenshotBase64(serial),
+          this.deviceManager.getForegroundActivity(serial) // 显式获取前台应用
         ]);
 
-        uiDump = dump;
         screenshot = screenBase64;
         
         // 实时推送截图给前端
@@ -189,28 +191,20 @@ class Orchestrator {
           this.logger.screenshot(screenshot);
         }
         
-        // 解析 UI XML 为简化列表
-        if (uiDump) {
-          uiElements = this.deviceManager.parseUIXmlToSimplified(uiDump);
-        }
+        // 纯视觉模式，UI 元素列表为空
+        uiElements = [];
         
         if (winDumpRaw) {
           windowInfo = this.deviceManager.parseWindowDump(winDumpRaw);
+          // 使用更准确的 getForegroundActivity 结果覆盖
+          if (foregroundApp) {
+             const pkg = foregroundApp.split('/')[0];
+             windowInfo.focusedApp = pkg;
+             this.logger.info(`Detected Foreground App: ${pkg} (${foregroundApp})`);
+          }
           this.logger.debug('Window Dump Info:', windowInfo);
         }
 
-        if (!uiDump) {
-          this.logger.warn('无法获取UI层级（可能被应用阻止或界面未加载完成）', { reqId });
-          // 如果连续多次无法获取，可能是应用阻止了UI层级获取
-          const lastFailedCount = repeatedOperations.get('获取UI层级失败') || 0;
-          if (lastFailedCount >= 2) {
-            this.logger.warn('多次无法获取UI层级，建议模型使用其他方法', { reqId });
-          }
-          repeatedOperations.set('获取UI层级失败', lastFailedCount + 1);
-        } else {
-          // 成功获取，清除失败计数
-          repeatedOperations.delete('获取UI层级失败');
-        }
       } catch (error) {
         this.logger.error('获取设备状态失败', error);
       }
@@ -221,27 +215,43 @@ class Orchestrator {
       
       // 检查是否有重复操作
       const lastOperation = executionHistory.length > 0 ? executionHistory[executionHistory.length - 1] : null;
+      let repeatedOpsInfo = [];
+      let repeatedWarning = '';
+
       if (lastOperation) {
         const opKey = `${lastOperation.desc || lastOperation.id}`;
         const count = repeatedOperations.get(opKey) || 0;
         if (count >= 1) { // 只要重复一次就开始提醒
           // 如果同一个操作重复了，在提示中强调需要换方法或调整坐标
           this.logger.warn(`检测到重复操作: ${opKey}，已执行${count}次，建议调整坐标或方法`, { reqId });
+          
+          if (count >= 2) {
+              repeatedWarning = `\n**系统警告**：检测到您连续 ${count + 1} 次执行了相同的操作 (${lastOperation.action})。请立即停止重复！\n请仔细观察截图：\n1. 任务是否已经完成了？如果是，请直接 finish。\n2. 如果没完成，是否卡住了？请尝试 Back 或 Wait，或者更换点击位置。`;
+          }
         }
         repeatedOperations.set(opKey, count + 1);
+        
+        repeatedOpsInfo = Array.from(repeatedOperations.entries())
+          .filter(([_, count]) => count >= 2)
+          .map(([op, count]) => `${op} (已执行${count}次)`);
       }
       
+      // 添加上一步执行的反馈信息
+      let lastStepFeedback = lastOperation ? 
+        `上一步操作: ${lastOperation.desc} (状态: ${lastOperation.success ? '成功' : '失败'})。请仔细观察截图，确认该操作是否产生了预期效果（如文字是否已输入、页面是否已跳转）。` : 
+        '';
+      
+      if (repeatedWarning) {
+          lastStepFeedback += repeatedWarning;
+      }
+
       if (iteration === 1) {
         // 第一轮：生成初始计划
         plan = await this.doubaoAgent.generatePlan(userQuery, deviceInfo, uiDump, windowInfo, screenshot, uiElements);
       } else {
-        // 后续轮次：基于当前状态规划下一步，并传递重复操作信息
-        const repeatedOpsInfo = Array.from(repeatedOperations.entries())
-          .filter(([_, count]) => count >= 2)
-          .map(([op, count]) => `${op} (已执行${count}次)`);
-        
+        // 后续轮次：基于当前状态规划下一步，并传递重复操作信息和反馈
         plan = await this.doubaoAgent.planNextStep(
-          userQuery, 
+          `${userQuery}\n\n${lastStepFeedback}`, // 将反馈注入到 userQuery 中，让模型可见
           uiDump, 
           deviceInfo, 
           executionHistory,
@@ -253,6 +263,75 @@ class Orchestrator {
       }
 
       // 检查是否完成
+      if (plan.action) {
+        // 新版 Action 模式
+        if (plan.action.action === 'finish') {
+          completed = true;
+          this.logger.info('任务完成', { 
+            reqId, 
+            message: plan.action.message || '任务已完成'
+          });
+          break;
+        }
+
+        // 执行动作
+        const action = plan.action;
+        const stepId = `step_${iteration}`;
+        const stepDesc = `${action.action} ${JSON.stringify(action)}`;
+        
+        this.logger.step(stepId, `[迭代${iteration}] 执行: ${action.action}`, { action });
+        
+        const stepResult = {
+          stepId: stepId,
+          iteration,
+          success: false,
+          commandResult: null,
+          error: null
+        };
+
+        try {
+          const result = await this.commandExecutor.executeAction(
+            action,
+            serial,
+            deviceInfo.screenSize?.width || 1080,
+            deviceInfo.screenSize?.height || 2400
+          );
+          
+          stepResult.success = result.success;
+          stepResult.commandResult = result;
+          
+          if (!result.success) {
+            stepResult.error = result.message;
+            this.logger.warn(`动作执行失败: ${result.message}`, { reqId });
+          }
+
+          executionHistory.push({
+            id: stepId,
+            desc: stepDesc,
+            success: result.success
+          });
+
+        } catch (error) {
+          stepResult.success = false;
+          stepResult.error = error.message;
+          this.logger.error(`动作执行异常`, error, { reqId });
+          
+          executionHistory.push({
+            id: stepId,
+            desc: stepDesc,
+            success: false,
+            error: error.message
+          });
+        }
+        
+        stepResults.push(stepResult);
+        
+        // 简单等待
+        await this.sleep(500);
+        continue;
+      }
+
+      // 旧版 Steps 模式 (兼容代码)
       if (!plan.steps || plan.steps.length === 0) {
         completed = true;
         this.logger.info('任务完成', { 

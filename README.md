@@ -3,86 +3,108 @@
   
   <p>
     <strong>字节有豆包 · 我们有豆汁</strong><br>
-    <span style="font-size: 1.2em; color: #409EFF;">✨ 豆汁助手，你值得拥有 ✨</span>
+    <span style="font-size: 1.2em; color: #409EFF;">✨ Intelligent • Visual • Autonomous ✨</span>
   </p>
 
   <p>
-    <a href="https://www.tongzhilian.cn" target="_blank">🌐 官方网站</a> •
-    <a href="https://gitee.com/Lapper/douzhi-phone" target="_blank">🇨🇳 Gitee (国内仓库)</a> •
-    <a href="https://github.com/Lappercn/DouZhiPhone" target="_blank">🌍 GitHub (国外仓库)</a>
+    <a href="#-introduction">Introduction</a> •
+    <a href="#-features">Features</a> •
+    <a href="#-quick-start">Quick Start</a> •
+    <a href="#-architecture">Architecture</a> •
+    <a href="#-contributing">Contributing</a>
   </p>
 </div>
 
 ---
 
-## 📖 项目简介
+## 📖 Introduction (项目简介)
 
-**豆汁手机** 是一款基于 AI 大模型驱动的 Android 手机自动化助手。它能够理解您的自然语言指令，智能规划操作步骤，并自动执行复杂的手机操作任务。让繁琐的操作变得简单，让智能手机真正“智能”。
+**DouZhi Phone** (豆汁手机) is an advanced Android automation agent powered by Large Language Models (LLMs) and Computer Vision. Unlike traditional automation tools that rely on rigid scripts or XML hierarchy dumps, DouZhi "sees" the screen and "thinks" about how to operate apps, just like a human.
 
-## � 创作初衷
+Whether you are a QA engineer looking to automate complex test scenarios, or a developer exploring the future of AI agents, DouZhi Phone provides a robust and extensible platform.
 
-看到豆包手机发布后，我突然回想起自己曾经从事测试工作的经历。那些繁琐的重复操作、由于人为疏忽导致的漏测……我深知自动化对于测试人员和普通用户的价值。
+**豆汁手机 (DouZhi Phone)** 是一款基于多模态大模型（LLM）与计算机视觉驱动的 Android 智能助手。它不依赖传统的控件树（XML）解析，而是像人类一样通过“视觉”理解屏幕内容，并智能规划操作路径。无论你是自动化测试工程师，还是 AI Agent 探索者，豆汁手机都能为你提供强大的支持。
 
-于是，**豆汁手机** 诞生了。
+## ✨ Features (核心特性)
 
-这不仅是一个工具，更是我对自动化未来的一种探索。虽然目前它初具雏形，但要成为一个完美的助手，还需要更多的打磨。
+- **🗣️ Natural Language Control**: Tell it what to do (e.g., "Send a message to Mom on WeChat"), and it figures out the rest.
+- **👁️ Vision-Driven**: Uses screenshots and normalized coordinates (0-1000) for interaction, making it compatible with apps that block accessibility services.
+- **🧠 Smart Reasoning**: Implements an "Observation-Thought-Action" loop with self-correction capabilities. It verifies its own actions and retries if necessary.
+- **⚡ High Performance**: Optimized ADB communication and intelligent input handling (automatic keyboard switching, text clearing).
+- **🛡️ Safe & Controlled**: Includes loop detection and repetition warnings to prevent runaway automation.
 
-**开源不易，独木难支。** 这个项目需要大家的共同维护和完善。无论你是测试大牛、开发高手，还是对 AI 感兴趣的极客，都热烈欢迎加入我们的组织！让我们一起把“豆汁”熬得更浓、更香！
+## 🚀 Quick Start (新手教程)
 
-## �🚀 快速启动
+### Prerequisites (准备工作)
+1.  **Node.js**: Version 18 or higher.
+2.  **ADB Tools**: Ensure `adb` is in your system PATH.
+3.  **Android Device**: A physical phone or emulator (USB debugging enabled).
+4.  **Doubao API Key**: You need an API key from [Doubao/Volcengine](https://www.volcengine.com/) (or compatible LLM provider).
 
-### 1. 启动后端服务
-在项目根目录下运行：
+### Installation (安装步骤)
 
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/YourUsername/DouZhiPhone.git
+    cd DouZhiPhone
+    ```
+
+2.  **Install Backend Dependencies**
+    ```bash
+    npm install
+    ```
+
+3.  **Configure API Key**
+    Edit `config/default.json` (or create `config/local.json`) and add your API key:
+    ```json
+    {
+      "doubao": {
+        "apiKey": "YOUR_API_KEY_HERE",
+        "model": "doubao-pro-32k"
+      }
+    }
+    ```
+
+### Running the Application (启动运行)
+
+**Step 1: Start the Backend Server**
 ```bash
-# 安装依赖
-npm install
-
-# 启动服务
+# In the root directory
 npm run server
 ```
 
-### 2. 启动前端界面
-打开新的终端窗口，进入 `frontend` 目录并运行：
-
+**Step 2: Start the Frontend UI**
+Open a new terminal:
 ```bash
 cd frontend
-
-# 安装依赖
 npm install
-
-# 启动界面
 npm run dev
 ```
 
-### 3. 开始使用
-1. 确保 Android 手机已通过 USB 连接电脑，并开启 **USB调试** 模式。
-2. 浏览器会自动打开或手动访问终端显示的地址（通常是 `http://localhost:5173`）。
-3. 在网页控制台输入指令即可控制手机（例如："打开设置"、"截屏"）。
+**Step 3: Connect & Control**
+1.  Connect your Android phone via USB.
+2.  Open `http://localhost:5173` in your browser.
+3.  You should see your device screen mirrored. Type a command like "Open Settings and check WiFi" to start!
 
----
+## 🏗️ Architecture (技术架构)
 
-## 🤝 加入我们
+DouZhi Phone adopts a modern, decoupled architecture:
 
-我们是一个充满激情的技术团队，致力于探索 AI 与移动端的无限可能。
+*   **Frontend**: Vue 3 + Element Plus (Responsive UI, Screen Mirroring)
+*   **Backend**: Node.js + Express (API Server, ADB Management)
+*   **Agent Core**: 
+    *   **Planner**: LLM-based reasoning (Observation -> Thought -> Action).
+    *   **Executor**: Robust command execution (ADB/Monkey/Shell).
+    *   **Verifier**: Visual verification loop.
 
-### 💻 贡献代码
-如果你有好的想法或技术实力，欢迎提交 Pull Request 或 Issue！无论是修复 Bug、优化体验，还是开发新功能，我们都热烈欢迎。
+## 🤝 Contributing (加入我们)
 
-- **国内开发者**：推荐使用 [Gitee 仓库](https://gitee.com/Lapper/douzhi-phone)
-- **全球开发者**：推荐使用 [GitHub 仓库](https://github.com/Lappercn/DouZhiPhone)
+We welcome contributions from the community! Whether it's fixing bugs, adding new features, or improving documentation, your help is appreciated.
 
-### ☕ 线下交流
-我们不定期举办**线下技术交流活动**，欢迎本地的小伙伴加入！
-在这里，你可以：
-- 与核心开发者面对面交流
-- 分享你的创意和项目
-- 结识志同道合的朋友
-
-👉 **访问官网了解更多：** [同智联 (tongzhilian.cn)](https://www.tongzhilian.cn)
+**开源不易，期待共建！** 如果你对 AI Agent 感兴趣，或者在寻找一个能够落地的自动化方案，欢迎加入我们。
 
 ---
 
 <div align="center">
-  <p>© 2025 AI Phone Automation | Powered by <a href="https://www.tongzhilian.cn">同智联</a></p>
+  <p>© 2025 DouZhi Phone Team</p>
 </div>

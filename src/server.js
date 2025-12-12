@@ -70,6 +70,33 @@ app.get('/api/devices', async (req, res) => {
   }
 });
 
+// API: 启用 ADB over TCP/IP
+app.post('/api/device/tcpip', async (req, res) => {
+  const { serial, port } = req.body;
+  if (!serial) return res.status(400).json({ success: false, error: 'Serial is required' });
+  
+  const result = await orchestrator.deviceManager.enableTcpIp(serial, port);
+  res.json(result);
+});
+
+// API: 连接远程设备
+app.post('/api/device/connect', async (req, res) => {
+  const { ip, port } = req.body;
+  if (!ip) return res.status(400).json({ success: false, error: 'IP is required' });
+  
+  const result = await orchestrator.deviceManager.connectRemote(ip, port);
+  res.json(result);
+});
+
+// API: 断开远程设备
+app.post('/api/device/disconnect', async (req, res) => {
+  const { ip, port } = req.body;
+  if (!ip) return res.status(400).json({ success: false, error: 'IP is required' });
+  
+  const result = await orchestrator.deviceManager.disconnectRemote(ip, port);
+  res.json(result);
+});
+
 // API: 执行任务
 app.post('/api/task', async (req, res) => {
   const { query, deviceSerial } = req.body;

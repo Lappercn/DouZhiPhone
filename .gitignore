@@ -10,3 +10,4 @@ screenshots/
 test_output/
 frontend/node_modules/
 frontend/dist/
+external_repos/

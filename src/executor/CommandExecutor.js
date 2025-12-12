@@ -1,5 +1,6 @@
 import { execa } from 'execa';
 import Logger from '../utils/logger.js';
+import APP_PACKAGES from '../config/apps.js';
 
 class CommandExecutor {
   constructor(deviceManager, securityConfig = {}, logger = null) {
@@ -193,6 +194,236 @@ class CommandExecutor {
    */
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // ==========================================
+  // High-Level Action Handlers (Open-AutoGLM Style)
+  // ==========================================
+
+  /**
+   * 执行高层动作
+   * @param {Object} action - 动作对象 { action: "Tap", element: [x, y], ... }
+   * @param {String} serial - 设备序列号
+   * @param {Number} screenWidth - 屏幕宽度
+   * @param {Number} screenHeight - 屏幕高度
+   */
+  async executeAction(action, serial, screenWidth, screenHeight) {
+    const actionName = action.action;
+    this.logger.info(`Executing action: ${actionName}`, { action, serial });
+
+    try {
+      switch (actionName) {
+        case 'Tap':
+          return await this.handleTap(action, serial, screenWidth, screenHeight);
+        case 'Swipe':
+          return await this.handleSwipe(action, serial, screenWidth, screenHeight);
+        case 'Type':
+        case 'Type_Name':
+          return await this.handleType(action, serial);
+        case 'Back':
+          return await this.handleBack(serial);
+        case 'Home':
+          return await this.handleHome(serial);
+        case 'Launch':
+          return await this.handleLaunch(action, serial);
+        case 'Wait':
+          return await this.handleWait(action);
+        case 'Double Tap':
+            return await this.handleDoubleTap(action, serial, screenWidth, screenHeight);
+        case 'Long Press':
+            return await this.handleLongPress(action, serial, screenWidth, screenHeight);
+        default:
+          this.logger.warn(`Unknown action: ${actionName}`, { action });
+          return { success: false, message: `Unknown action: ${actionName}` };
+      }
+    } catch (error) {
+      this.logger.error(`Action execution failed: ${actionName}`, error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * 相对坐标转绝对坐标 (1000x1000 -> pixels)
+   */
+  convertRelativeToAbsolute(element, width, height) {
+    if (!element) {
+        throw new Error('Element coordinates are undefined');
+    }
+    
+    // 如果 element 是数组 [x, y]
+    if (Array.isArray(element)) {
+        if (element.length < 2) {
+             throw new Error(`Invalid coordinate array length: ${element.length}`);
+        }
+        const x = Math.floor((element[0] / 1000) * width);
+        const y = Math.floor((element[1] / 1000) * height);
+        return { x, y };
+    }
+    
+    // 如果 element 是对象 {x, y} (虽然 Open-AutoGLM 通常用数组，但防守式编程)
+    if (typeof element === 'object' && element.x !== undefined && element.y !== undefined) {
+         const x = Math.floor((element.x / 1000) * width);
+         const y = Math.floor((element.y / 1000) * height);
+         return { x, y };
+    }
+
+    throw new Error(`Invalid element format: ${JSON.stringify(element)}`);
+  }
+
+  async handleTap(action, serial, width, height) {
+    const { x, y } = this.convertRelativeToAbsolute(action.element, width, height);
+    // 使用 swipe 模拟点击更稳定 (100ms)
+    // input swipe <x1> <y1> <x2> <y2> [duration(ms)]
+    const cmd = `input swipe ${x} ${y} ${x} ${y} 100`;
+    return await this.deviceManager.execAdb(serial, cmd);
+  }
+
+  async handleDoubleTap(action, serial, width, height) {
+      const { x, y } = this.convertRelativeToAbsolute(action.element, width, height);
+      // 双击：两次快速点击
+      const cmd1 = `input tap ${x} ${y}`;
+      const cmd2 = `input tap ${x} ${y}`;
+      await this.deviceManager.execAdb(serial, cmd1);
+      await this.sleep(50); // 间隔 50ms
+      return await this.deviceManager.execAdb(serial, cmd2);
+  }
+
+  async handleLongPress(action, serial, width, height) {
+      const { x, y } = this.convertRelativeToAbsolute(action.element, width, height);
+      // 长按：duration > 500ms
+      const cmd = `input swipe ${x} ${y} ${x} ${y} 1000`;
+      return await this.deviceManager.execAdb(serial, cmd);
+  }
+
+  async handleSwipe(action, serial, width, height) {
+    const start = this.convertRelativeToAbsolute(action.start, width, height);
+    const end = this.convertRelativeToAbsolute(action.end, width, height);
+    // 默认滑动时间 500ms
+    const duration = action.duration || 500;
+    const cmd = `input swipe ${start.x} ${start.y} ${end.x} ${end.y} ${duration}`;
+    return await this.deviceManager.execAdb(serial, cmd);
+  }
+
+  async handleType(action, serial) {
+    const text = action.text;
+    if (!text) return { success: false, message: 'No text provided' };
+    
+    // 1. 先尝试清除已有文本 (这会自动切换到 ADBKeyboard)
+    // 即使失败也不阻断流程，因为可能只是没安装 ADBKeyboard
+    await this.deviceManager.clearText(serial);
+    
+    // 2. 等待一小会儿确保清除完成
+    await this.sleep(500);
+
+    // 3. 使用 DeviceManager 的智能输入（自动处理中文/ADBKeyBoard）
+    const success = await this.deviceManager.inputText(serial, text);
+    return { success };
+  }
+
+  async handleBack(serial) {
+    return await this.deviceManager.execAdb(serial, 'input keyevent 4'); // KEYCODE_BACK
+  }
+
+  async handleHome(serial) {
+    return await this.deviceManager.execAdb(serial, 'input keyevent 3'); // KEYCODE_HOME
+  }
+
+  // ==========================================
+  // App Name to Package Mapping
+  // ==========================================
+  getAppPackage(appName) {
+    // Exact match
+    if (APP_PACKAGES[appName]) {
+      return APP_PACKAGES[appName];
+    }
+
+    // Case-insensitive match
+    const lowerName = appName.toLowerCase();
+    for (const [name, pkg] of Object.entries(APP_PACKAGES)) {
+      if (name.toLowerCase() === lowerName) {
+        return pkg;
+      }
+    }
+
+    // Return original if not found (maybe it's already a package name)
+    return appName;
+  }
+
+  async handleLaunch(action, serial) {
+    let app = action.app;
+    if (!app) return { success: false, message: 'No app specified' };
+    
+    // Resolve package name
+    const packageName = this.getAppPackage(app);
+    this.logger.debug(`Launch app: ${app} -> ${packageName}`);
+
+    // 特殊处理：如果是微信，直接使用 am start (因为 monkey 在某些设备上启动微信可能有问题，或者微信启动慢导致重复)
+    if (packageName === 'com.tencent.mm') {
+         this.logger.info('Using direct AM start for WeChat');
+         // 微信通常的 Launcher Activity
+         const wechatCmd = `am start -n com.tencent.mm/.ui.LauncherUI`;
+         const result = await this.deviceManager.execAdb(serial, wechatCmd);
+         // 无论成功与否，都等待更长时间
+         await this.sleep(3000); 
+         return result;
+    }
+
+    // 1. 尝试使用 monkey 启动
+    const monkeyCmd = `monkey -p ${packageName} -c android.intent.category.LAUNCHER 1`;
+    const monkeyResult = await this.deviceManager.execAdb(serial, monkeyCmd);
+
+    // 检查 output，如果包含 "No activities found" 或者 events injected 为 0，则认为失败
+    const monkeyOutput = monkeyResult.stdout || '';
+    const isMonkeySuccess = monkeyResult.success && 
+                            !monkeyOutput.includes('No activities found') && 
+                            monkeyOutput.includes('Events injected: 1');
+
+    if (isMonkeySuccess) {
+        // Monkey 启动成功后，多等待一会儿，让应用加载
+        await this.sleep(2000);
+        return monkeyResult;
+    }
+
+    this.logger.warn(`Monkey launch failed for ${packageName}, trying 'am start'...`, { stdout: monkeyOutput });
+
+    // 2. 回退方案：使用 am start (更可靠)
+    // 先获取 Launch Activity
+    // 注意：Windows 下使用 grep 可能有问题，直接获取全部输出然后在 JS 处理
+    // 使用 dumpsys package 来查找 Main Activity 可能更准确，但输出量大
+    // 尝试 cmd package resolve-activity
+    const dumpCmd = `cmd package resolve-activity --brief ${packageName}`;
+    const dumpResult = await this.deviceManager.execAdb(serial, dumpCmd);
+    
+    if (dumpResult.success && dumpResult.stdout) {
+        // 查找类似 com.tencent.mm/.ui.LauncherUI 的字符串
+        // 输出通常是:
+        // Service: ...
+        // com.package/.Activity
+        const lines = dumpResult.stdout.split('\n');
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // 匹配 com.package/com.package.Activity 格式
+            if (trimmed.startsWith(packageName) && trimmed.includes('/')) {
+                const activity = trimmed;
+                this.logger.info(`Found launch activity: ${activity}`);
+                const startCmd = `am start -n ${activity}`;
+                const result = await this.deviceManager.execAdb(serial, startCmd);
+                await this.sleep(2000);
+                return result;
+            }
+        }
+    }
+
+    // 最后的尝试：不指定 Activity，只指定包名 (部分 Android 版本支持)
+    const genericStartCmd = `monkey -p ${packageName} 1`;
+    return await this.deviceManager.execAdb(serial, genericStartCmd);
+  }
+
+  async handleWait(action) {
+    const durationStr = action.duration || "1 seconds";
+    const duration = parseFloat(durationStr.replace("seconds", "").trim()) * 1000;
+    await this.sleep(duration);
+    return { success: true };
   }
 }
 
